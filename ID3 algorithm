@@ -1,0 +1,55 @@
+import pandas as pd
+import numpy as np
+
+def entropy(labels):
+    value_counts = labels.value_counts()
+    probs = value_counts / len(labels)
+    return -probs.dot(np.log2(probs))
+
+def information_gain(data, attribute, target_attribute):
+    total_entropy = entropy(data[target_attribute])
+    weighted_entropy = 0
+    for value in data[attribute].unique():
+        subset = data[data[attribute] == value]
+        weighted_entropy += len(subset) / len(data) * entropy(subset[target_attribute])
+    return total_entropy - weighted_entropy
+
+def most_common_value(series):
+    return series.mode()[0]
+
+def id3(examples, target_attribute, attributes):
+    root = {}
+    
+    if len(examples[target_attribute].unique()) == 1:
+        return examples[target_attribute].iloc[0]
+
+    if len(attributes) == 0:
+        return most_common_value(examples[target_attribute])
+
+    best_attribute = max(attributes, key=lambda attr: information_gain(examples, attr, target_attribute))
+    root[best_attribute] = {}
+
+    for value in examples[best_attribute].unique():
+        subset = examples[examples[best_attribute] == value]
+        if len(subset) == 0:
+            root[best_attribute][value] = most_common_value(examples[target_attribute])
+        else:
+            root[best_attribute][value] = id3(subset, target_attribute, [attr for attr in attributes if attr != best_attribute])
+
+    return root
+
+# Example usage:
+data = pd.DataFrame({
+    'Outlook': ['Sunny', 'Sunny', 'Overcast', 'Rain', 'Rain', 'Rain', 'Overcast', 'Sunny', 'Sunny', 'Rain', 'Sunny', 'Overcast', 'Overcast', 'Rain'],
+    'Temperature': ['Hot', 'Hot', 'Hot', 'Mild', 'Cool', 'Cool', 'Cool', 'Mild', 'Cool', 'Mild', 'Mild', 'Mild', 'Hot', 'Mild'],
+    'Humidity': ['High', 'High', 'High', 'High', 'Normal', 'Normal', 'Normal', 'High', 'Normal', 'Normal', 'Normal', 'High', 'Normal', 'High'],
+    'Wind': ['Weak', 'Strong', 'Weak', 'Weak', 'Weak', 'Strong', 'Strong', 'Weak', 'Weak', 'Weak', 'Strong', 'Strong', 'Weak', 'Strong'],
+    'PlayTennis': ['No', 'No', 'Yes', 'Yes', 'Yes', 'No', 'Yes', 'No', 'Yes', 'Yes', 'Yes', 'Yes', 'Yes', 'No']
+})
+attributes = data.columns[:-1]
+target_attribute = 'PlayTennis'
+
+tree = id3(data, target_attribute, attributes)
+print(tree)
+output:
+{'Outlook': {'Sunny': {'Humidity': {'High': 'No', 'Normal': 'Yes'}}, 'Overcast': 'Yes', 'Rain': {'Wind': {'Weak': 'Yes', 'Strong': 'No'}}}}
